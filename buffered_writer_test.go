@@ -33,9 +33,9 @@ func TestBufferedWriteCloser(t *testing.T) {
 	}
 
 	wc.Write([]byte("2"))
-	if len(buf.Bytes()) != 0 {
+	if len(buf.Bytes()) != 2 {
 		t.Fatalf(
-			"Writing to BufferedWriteCloser should be buffered. expecting 0 len, got %d len",
+			"Writing to BufferedWriteCloser should be buffered. expecting 2 len, got %d len",
 			len(buf.Bytes()),
 		)
 	}
