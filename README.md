@@ -1,4 +1,4 @@
-#### *What is this?*
+#### *What is this?*   ![travis](https://travis-ci.org/vivowares/waterwheel.svg?branch=master "build status")
 
 It's another logging package
 

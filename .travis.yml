@@ -1,0 +1,8 @@
+language: go
+
+go:
+  - 1.5.1
+
+go_import_path: github.com/vivowares/waterwheel
+
+script: go test -v -bench=.
