@@ -1,0 +1,193 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="chrome=1">
+    <title>Waterwheel by vivowares</title>
+    <link rel="stylesheet" href="stylesheets/styles.css">
+    <link rel="stylesheet" href="stylesheets/github-dark.css">
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js"></script>
+    <script src="javascripts/respond.js"></script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <!--[if lt IE 8]>
+    <link rel="stylesheet" href="stylesheets/ie.css">
+    <![endif]-->
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+
+  </head>
+  <body>
+      <div id="header">
+        <nav>
+          <li class="fork"><a href="https://github.com/vivowares/waterwheel">View On GitHub</a></li>
+          <li class="downloads"><a href="https://github.com/vivowares/waterwheel/zipball/master">ZIP</a></li>
+          <li class="downloads"><a href="https://github.com/vivowares/waterwheel/tarball/master">TAR</a></li>
+          <li class="title">DOWNLOADS</li>
+        </nav>
+      </div><!-- end header -->
+
+    <div class="wrapper">
+
+      <section>
+        <div id="title">
+          <h1>Waterwheel</h1>
+          <p>This is a logging package for go which improves greatly on performance.</p>
+          <hr>
+          <span class="credits left">Project maintained by <a href="https://github.com/vivowares">vivowares</a></span>
+          <span class="credits right">Hosted on GitHub Pages &mdash; Theme by <a href="https://twitter.com/michigangraham">mattgraham</a></span>
+        </div>
+
+        <h2>
+<a id="what-is-this" class="anchor" href="#what-is-this" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a><em>What is this?</em>
+</h2>
+
+<p>It's another logging package</p>
+
+<h2>
+<a id="why-do-we-need-another-logging-package" class="anchor" href="#why-do-we-need-another-logging-package" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a><em>Why do we need another logging package?</em>
+</h2>
+
+<p>This package is designed for heavy duty logging. It doesn't provide much config options and doesn't give you extra power of structured logging. The only goal here is to unblock the logging from the application runtime.</p>
+
+<p>The standard <code>log</code> package is pretty good on performance, but it doesn't provide async logging, buffered logging, etc. There are also some comparisons among other logging packages in terms of performance. You can easily benchmark them. But you should find the result to be similar with <a href="https://www.reddit.com/r/golang/comments/3y4ag4/benchmarking_for_some_golang_logging_libraries/">this post</a>.</p>
+
+<h2>
+<a id="how-waterwheel-works-then" class="anchor" href="#how-waterwheel-works-then" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a><em>How waterwheel works then?</em>
+</h2>
+
+<p>Let's start from the root. Often times, logs are written into a file or a socket, etc. They all require synchronization between different writes. For example, when writing into a file, you need to make sure different goroutines are logging with locks. Failed to do locking will resulting unexpected data. It's usually OK when you only have a few logs per client and you don't have many concurrent clients. But when we started working on <a href="https://github.com/vivowares/eywa">Eywa</a>, we found that we want to support at least tens of thousands(or even close to million in the future release) of long-live connections per node, and each of them can generate tons of logs. When this happens, all the goroutines will be synchronized at the one single point - <em>Logging</em>. Not matter how much effort you put on improving other moving parts, logging will always block you if you don't make it asynchronous. That's why we created waterwheel and the only difference is that: Let the logging to have its own goroutine and, others can just fire and forget.</p>
+
+<p>To show the difference, at the end of the documentation, we posted some benchmark results compared with standard <code>log</code> package.</p>
+
+<h2>
+<a id="how-to-use" class="anchor" href="#how-to-use" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a><em>How to use?</em>
+</h2>
+
+<p>To install the package:</p>
+
+<pre><code>go get github.com/vivowares/waterwheel
+</code></pre>
+
+<p>Example of using:</p>
+
+<pre><code>import "github.com/vivowares/waterwheel"
+
+var w io.WriteCloser                // whatever io.WriteCloser
+bufSize := 512
+logger := waterwheel.NewAsyncLogger(
+  waterwheel.NewBufferedWriteCloser(bufSize, w),
+  waterwheel.SimpleFormatter, size, "debug",
+)
+logger.Info("test message")         // INFO: [2009-11-10T23:00:00] test message
+
+logger.Close()                      // Don't forget to close the logger
+
+</code></pre>
+
+<h2>
+<a id="performance" class="anchor" href="#performance" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a><em>Performance</em>
+</h2>
+
+<p><strong>standard log</strong></p>
+
+<pre><code>StandardLogSmallMessageToDiscard                           3000000    452 ns/op
+StandardLogLargeMessageToDiscard                           1000000   1417 ns/op
+
+StandardLogSmallMessageToFile                              1000000   1751 ns/op
+StandardLogLargeMessageToFile                               500000   4324 ns/op
+</code></pre>
+
+<p><strong>waterwheel</strong></p>
+
+<pre><code>AsyncSize1WithoutBufferedWriterSmallMessageToDiscard      1000000   1023 ns/op
+AsyncSize10WithoutBufferedWriterSmallMessageToDiscard     3000000    549 ns/op
+AsyncSize100WithoutBufferedWriterSmallMessageToDiscard    5000000    367 ns/op
+AsyncSize1000WithoutBufferedWriterSmallMessageToDiscard   5000000    339 ns/op
+AsyncSize10000WithoutBufferedWriterSmallMessageToDiscard  5000000    346 ns/op
+
+AsyncSize1WithoutBufferedWriterLargeMessageToDiscard      1000000   1047 ns/op
+AsyncSize10WithoutBufferedWriterLargeMessageToDiscard     3000000    577 ns/op
+AsyncSize100WithoutBufferedWriterLargeMessageToDiscard    3000000    449 ns/op
+AsyncSize1000WithoutBufferedWriterLargeMessageToDiscard   5000000    383 ns/op
+AsyncSize10000WithoutBufferedWriterLargeMessageToDiscard  5000000    401 ns/op
+
+AsyncSize1WithBufferedWriterSmallMessageToDiscard         1000000   1003 ns/op
+AsyncSize10WithBufferedWriterSmallMessageToDiscard        3000000    548 ns/op
+AsyncSize100WithBufferedWriterSmallMessageToDiscard       5000000    403 ns/op
+AsyncSize1000WithBufferedWriterSmallMessageToDiscard      5000000    358 ns/op
+AsyncSize10000WithBufferedWriterSmallMessageToDiscard     5000000    363 ns/op
+
+AsyncSize1WithBufferedWriterLargeMessageToDiscard         1000000   1107 ns/op
+AsyncSize10WithBufferedWriterLargeMessageToDiscard        2000000    649 ns/op
+AsyncSize100WithBufferedWriterLargeMessageToDiscard       3000000    508 ns/op
+AsyncSize1000WithBufferedWriterLargeMessageToDiscard      3000000    433 ns/op
+AsyncSize10000WithBufferedWriterLargeMessageToDiscard     3000000    442 ns/op
+
+AsyncSize1WithoutBufferedWriterSmallMessageToFile          500000   2367 ns/op
+AsyncSize10WithoutBufferedWriterSmallMessageToFile        1000000   1860 ns/op
+AsyncSize100WithoutBufferedWriterSmallMessageToFile       1000000   1508 ns/op
+AsyncSize1000WithoutBufferedWriterSmallMessageToFile      1000000   1509 ns/op
+AsyncSize10000WithoutBufferedWriterSmallMessageToFile     1000000   1526 ns/op
+
+AsyncSize1WithoutBufferedWriterLargeMessageToFile          300000   3454 ns/op
+AsyncSize10WithoutBufferedWriterLargeMessageToFile         500000   2825 ns/op
+AsyncSize100WithoutBufferedWriterLargeMessageToFile        500000   2443 ns/op
+AsyncSize1000WithoutBufferedWriterLargeMessageToFile       500000   2449 ns/op
+AsyncSize10000WithoutBufferedWriterLargeMessageToFile      500000   2458 ns/op
+
+AsyncSize1WithBufferedWriterSmallMessageToFile             500000   2546 ns/op
+AsyncSize10WithBufferedWriterSmallMessageToFile           2000000    755 ns/op
+AsyncSize100WithBufferedWriterSmallMessageToFile          3000000    514 ns/op
+AsyncSize1000WithBufferedWriterSmallMessageToFile         3000000    402 ns/op
+AsyncSize10000WithBufferedWriterSmallMessageToFile        3000000    404 ns/op
+
+AsyncSize1WithBufferedWriterLargeMessageToFile             500000   3564 ns/op
+AsyncSize10WithBufferedWriterLargeMessageToFile            500000   2177 ns/op
+AsyncSize100WithBufferedWriterLargeMessageToFile          1000000   1860 ns/op
+AsyncSize1000WithBufferedWriterLargeMessageToFile         1000000   1978 ns/op
+AsyncSize10000WithBufferedWriterLargeMessageToFile        1000000   2051 ns/op
+
+SyncWithoutBufferedWriterSmallMessageToDiscard            5000000   366 ns/op
+SyncWithoutBufferedWriterLargeMessageToDiscard            3000000   414 ns/op
+
+SyncSize1WithBufferedWriterSmallMessageToDiscard          3000000    407 ns/op
+SyncSize10WithBufferedWriterSmallMessageToDiscard         3000000    384 ns/op
+SyncSize100WithBufferedWriterSmallMessageToDiscard        5000000    396 ns/op
+SyncSize1000WithBufferedWriterSmallMessageToDiscard       5000000    376 ns/op
+SyncSize10000WithBufferedWriterSmallMessageToDiscard      5000000    378 ns/op
+
+SyncSize1WithBufferedWriterLargeMessageToDiscard          3000000    454 ns/op
+SyncSize10WithBufferedWriterLargeMessageToDiscard         3000000    462 ns/op
+SyncSize100WithBufferedWriterLargeMessageToDiscard        3000000    473 ns/op
+SyncSize1000WithBufferedWriterLargeMessageToDiscard       3000000    478 ns/op
+SyncSize10000WithBufferedWriterLargeMessageToDiscard      3000000    455 ns/op
+
+SyncWithoutBufferedWriterSmallMessageToFile               1000000    1626 ns/op
+SyncWithoutBufferedWriterLargeMessageToFile                500000    2934 ns/op
+
+SyncSize1WithBufferedWriterSmallMessageToFile             1000000   1815 ns/op
+SyncSize10WithBufferedWriterSmallMessageToFile            3000000    582 ns/op
+SyncSize100WithBufferedWriterSmallMessageToFile           3000000    512 ns/op
+SyncSize1000WithBufferedWriterSmallMessageToFile          3000000    455 ns/op
+SyncSize10000WithBufferedWriterSmallMessageToFile         3000000    446 ns/op
+
+SyncSize1WithBufferedWriterLargeMessageToFile              500000   2839 ns/op
+SyncSize10WithBufferedWriterLargeMessageToFile             500000   2409 ns/op
+SyncSize100WithBufferedWriterLargeMessageToFile            500000   2249 ns/op
+SyncSize1000WithBufferedWriterLargeMessageToFile           500000   2179 ns/op
+SyncSize10000WithBufferedWriterLargeMessageToFile         1000000   2188 ns/op
+</code></pre>
+
+<h2>
+<a id="conclusion" class="anchor" href="#conclusion" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a><strong>Conclusion:</strong>
+</h2>
+
+<p>With <code>Async + Buffered</code> logging, writing to a regular file becomes even faster then standard logging to Discard!</p>
+      </section>
+
+    </div>
+    <!--[if !IE]><script>fixScale(document);</script><![endif]-->
+    
+  </body>
+</html>
